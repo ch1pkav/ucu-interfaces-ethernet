@@ -21,29 +21,71 @@
 #define PORT_TCPS 5000
 #define PORT_UDPS 3000
 #define MAX_HTTPSOCK 6
-const char* web_content_fstr =
-    "<!DOCTYPE html>"
-    "<html>"
-    "<head>"
-    "<title>W5500-STM32 Web Server</title>"
-    "<meta http-equiv='Content-Type' content='text/html; charset=utf-8'>"
-    "<link href=\"data:image/x-icon;base64,A\" rel=\"icon\" type=\"image/x-icon\">"
-    "<style>"
-    "html {display: inline-block; margin: 0px auto; text-align: center;}"
-    "body{margin-top: 50px;}"
-    "p {font-size: 20px;color: #808080;margin-bottom: 20px;}"
-    "</style>"
-    "</head>"
-    "<body>"
-    "<h1>STM32 - W5500</h1>"
-    "<p>Chip ID: %d-%d-%d</p>"
-    "<p>Temperature: %d</p>"
-    "<p>Humidity: %d</p>"
-    "<p>Pressure: %d</p>"
-    "</body>"
-    "</html>";
 
-static char web_content_buf[2048];
+const char* web_content_str =
+"<!DOCTYPE html>"
+"<html>"
+"<head>"
+"<title>W5500-STM32 Web Server</title>"
+"<meta http-equiv='Content-Type' content='text/html; charset=utf-8'>"
+"<style>"
+"body { text-align: center; font-family: sans-serif; }"
+".data { font-size: 24px; font-weight: bold; }"
+"</style>"
+"</head>"
+"<body>"
+"<h1>STM32 Status</h1>"
+"<p>Temperature: <span id=\"temp\" class=\"data\">--.- C</span></p>"
+"<p>Humidity: <span id=\"humid\" class=\"data\">--.- %%</span></p>"
+"<p>Pressure: <span id=\"press\" class=\"data\">----.- hPa</span></p>"
+""
+"<script>"
+"function updateData() {"
+"fetch('/status')"
+".then(response => response.json())"
+".then(data => {"
+"document.getElementById('temp').textContent = "
+"`${data.env.t_c.toFixed(1)} C`;"
+"document.getElementById('humid').textContent = "
+"`${data.env.rh_pct.toFixed(1)} %`;"
+"document.getElementById('press').textContent = "
+"`${data.env.p_hpa.toFixed(1)} hPa`;"
+"})"
+".catch(error => {"
+"console.error('Fetch error:', error);"
+"document.getElementById('temp').textContent = 'ERROR';"
+"});"
+"}"
+"updateData();"
+"setInterval(updateData, 1000);"
+"</script>"
+"</body>"
+"</html>";
+
+const char* json_content_fstr = 
+"{\n"
+"  \"proto_ver\": %d,\n"
+"  \"device_id\": \"%02X%02X%02X%02X-%02X%02X%02X%02X-%02X%02X%02X%02X\",\n"
+// "  \"time_utc\": \"%s\",\n"
+// "  \"gps\": {\n"
+// "    \"lat\": %.4f, \n"
+// "    \"lon\": %.4f, \n"
+// "    \"fix\": %d, \n"
+// "    \"sats\": %d\n"
+// "  },\n"
+"  \"env\": {\n"
+"    \"t_c\": %.1f, \n"
+"    \"rh_pct\": %.1f, \n"
+"    \"p_hpa\": %.1f \n"
+// "    \"lux\": %d\n"
+"  }\n"
+// "  \"stale_age_s\": {\n"
+// "    \"gps\": %.1f, \n"
+// "    \"env\": %.1f\n"
+// "  }\n"
+"}";
+
+static char json_content_buf[2048];
 
 static uint8_t socknumlist[] = { 2, 3, 4, 5, 6, 7 };
 static uint8_t RX_BUF[1024];
@@ -121,14 +163,24 @@ void W5500Init(void) {
 }
 
 static void fill_web_content_buf(float temparature, float humidity, float pressure) {
-    sprintf(web_content_buf,
-            web_content_fstr,
-            HAL_GetUIDw0(),
-            HAL_GetUIDw1(),
-            HAL_GetUIDw2(),
-            (int)temparature,
-            (int)humidity,
-            (int)pressure);
+    sprintf(json_content_buf,
+            json_content_fstr,
+            0,
+            (HAL_GetUIDw0() >> 24) & 0xff,
+            (HAL_GetUIDw0() >> 16) & 0xff,
+            (HAL_GetUIDw0() >> 8) & 0xff,
+            (HAL_GetUIDw0()) & 0xff,
+            (HAL_GetUIDw1() >> 24) & 0xff,
+            (HAL_GetUIDw1() >> 16) & 0xff,
+            (HAL_GetUIDw1() >> 8) & 0xff,
+            (HAL_GetUIDw1()) & 0xff,
+            (HAL_GetUIDw2() >> 24) & 0xff,
+            (HAL_GetUIDw2() >> 16) & 0xff,
+            (HAL_GetUIDw2() >> 8) & 0xff,
+            (HAL_GetUIDw2()) & 0xff,
+            temparature,
+            humidity,
+            pressure);
 }
 
 // Interface
@@ -137,15 +189,14 @@ void server_init(void) {
     W5500Init();
     httpServer_init(TX_BUF, RX_BUF, MAX_HTTPSOCK, socknumlist);
     reg_httpServer_cbfunc(NVIC_SystemReset, NULL);
-    fill_web_content_buf(0.f, 0.f, 0.f);
     /* Web content registration */
-    reg_httpServer_webContent((uint8_t*)"index.html", (uint8_t*)web_content_buf);
+    reg_httpServer_webContent((uint8_t*)"index.html", (uint8_t*)web_content_str);
 }
 
 void server_run(void) {
     // update webcontent
     fill_web_content_buf(sensor_get_temperature(), sensor_get_humidity(), sensor_get_pressure());
-    reg_httpServer_webContent((uint8_t*)"index.html", (uint8_t*)web_content_buf);
+    reg_httpServer_webContent((uint8_t*)"status", (uint8_t*)json_content_buf);
 
     // serve
     for (int i = 0; i < MAX_HTTPSOCK; i++)

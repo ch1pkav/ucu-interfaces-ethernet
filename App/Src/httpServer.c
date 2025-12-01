@@ -508,18 +508,13 @@ static void http_process_handler(uint8_t s, st_http_request * p_http_request) {
         }
         find_http_uri_type(&p_http_request->TYPE, uri_name);	// Checking requested file types (HTML, TEXT, GIF, JPEG and Etc. are included)
 
-#ifdef _HTTPSERVER_DEBUG_
-        printf("\r\n> HTTPSocket[%d] : HTTP Method GET\r\n", s);
-        printf("> HTTPSocket[%d] : Request Type = %d\r\n", s, p_http_request->TYPE);
-        printf("> HTTPSocket[%d] : Request URI = %s\r\n", s, uri_name);
-#endif
 
         if (p_http_request->TYPE == PTYPE_CGI) {
             content_found = http_get_cgi_handler(uri_name, pHTTP_TX, &file_len);
             if (content_found && (file_len <= (DATA_BUF_SIZE - (strlen(RES_CGIHEAD_OK) +8)))) {
                 send_http_response_cgi(s, http_response, pHTTP_TX, (uint16_t)file_len);
             } else {
-                send_http_response_header(s, PTYPE_CGI, 0, STATUS_NOT_FOUND);
+                send_http_response_header(s, PTYPE_JSON, 0, STATUS_NOT_FOUND);
             }
         } else {
             // Find the User registered index for web content
@@ -529,37 +524,13 @@ static void http_process_handler(uint8_t s, st_http_request * p_http_request) {
                 HTTPSock_Status[get_seqnum].storage_type = CODEFLASH;
             }
             // Not CGI request, Web content in 'SD card' or 'Data flash' requested
-#ifdef _USE_SDCARD_
-#ifdef _HTTPSERVER_DEBUG_
-            printf("\r\n> HTTPSocket[%d] : Searching the requested content\r\n", s);
-#endif
-            if ((fr = f_open(&fs, (const char *)uri_name, FA_READ)) == 0) {
-                content_found = 1; // file open succeed
-
-                file_len = fs.fsize;
-                content_addr = fs.sclust;
-                HTTPSock_Status[get_seqnum].storage_type = SDCARD;
-            }
-#elif _USE_FLASH_
-            else if (/* Read content from Dataflash */) {
-                content_found = 1;
-                HTTPSock_Status[get_seqnum]->storage_type = DATAFLASH;
-                ; // To do
-            }
-#endif
             else {
                 content_found = 0; // fail to find content
             }
 
             if (!content_found) {
-#ifdef _HTTPSERVER_DEBUG_
-                printf("> HTTPSocket[%d] : Unknown Page Request\r\n", s);
-#endif
                 http_status = STATUS_NOT_FOUND;
             } else {
-#ifdef _HTTPSERVER_DEBUG_
-                printf("> HTTPSocket[%d] : Find Content [%s] ok - Start [%ld] len [ %ld ]byte\r\n", s, uri_name, content_addr, file_len);
-#endif
                 http_status = STATUS_OK;
             }
 
@@ -568,7 +539,9 @@ static void http_process_handler(uint8_t s, st_http_request * p_http_request) {
 #ifdef _HTTPSERVER_DEBUG_
                 printf("> HTTPSocket[%d] : Requested content len = [ %ld ]byte\r\n", s, file_len);
 #endif
-                send_http_response_header(s, p_http_request->TYPE, file_len, http_status);
+                if (strstr(uri_name, "status")) {
+                    send_http_response_header(s, PTYPE_JSON, file_len, http_status);
+                } else send_http_response_header(s, p_http_request->TYPE, file_len, http_status);
             }
 
             // Send HTTP body (content)
@@ -602,7 +575,7 @@ static void http_process_handler(uint8_t s, st_http_request * p_http_request) {
                     HTTPServer_ReStart();
                 }
             } else {
-                send_http_response_header(s, PTYPE_CGI, 0, STATUS_NOT_FOUND);
+                send_http_response_header(s, PTYPE_JSON, 0, STATUS_NOT_FOUND);
             }
         } else {	// HTTP POST Method; Content not found
             send_http_response_header(s, 0, 0, STATUS_NOT_FOUND);
