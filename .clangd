@@ -1,0 +1,13 @@
+CompileFlags:
+  Add:
+    - '-ferror-limit=0'
+    - '-Wno-implicit-int'
+    - '-I/home/vepbxer/.local/arm-gnu-toolchain/arm-none-eabi/include'
+  CompilationDatabase: build/Debug
+Diagnostics:
+  Suppress:
+    - unused-includes
+    - missing-includes
+    - unknown_typename
+    - unknown_typename_suggest
+    - typename_requires_specqual

@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug with ST-Link",
+      "type": "cortex-debug",
+      "request": "attach",
+
+      // Use the CMake context
+      "cwd": "${workspaceFolder}",
+      "executable": "${command:cmake.launchTargetPath}",
+      "runToEntryPoint": "main",
+      "showDevDebugOutput": "raw",
+      "servertype": "stlink",
+      "breakAfterReset": false,
+
+      // Paths provided by user in settings.json (or env vars)
+      "armToolchainPath": "${config:armToolchainPath}",
+      "serverpath": "${config:stlinkGdbServerPath}",
+      "stm32cubeprogrammer": "${config:stm32CubeProgrammerPath}",
+
+      // Optional convenience fields
+      "device": "STM32F411VET6",
+      //"svdFile": "${workspaceFolder}/stm32f103.svd"
+    }
+  ]
+}
