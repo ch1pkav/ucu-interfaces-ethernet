@@ -1,4 +1,5 @@
 #include "lcd_driver.h"
+#include "spi.h"
 
 volatile uint16_t LCD_HEIGHT = ILI9341_SCREEN_HEIGHT;
 volatile uint16_t LCD_WIDTH	 = ILI9341_SCREEN_WIDTH;

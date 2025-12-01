@@ -49,7 +49,7 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
 
-    App/Src/app_main.c
+    # Libraries
     App/Src/lcd.c
     App/Src/lcd_fonts.c
     App/Src/lcd_driver.c
@@ -61,8 +61,15 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     App/Src/socket.c
     App/Src/w5500.c
     App/Src/wizchip_conf.c
+
+    # Main
+    App/Src/app_main.c
+
+    # Components app code
     App/Src/server.c
     App/Src/sensor.c
+    App/Src/display.c
+    App/Src/gps.c
 )
 
 # Add include paths

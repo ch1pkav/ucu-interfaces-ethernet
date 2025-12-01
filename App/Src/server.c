@@ -5,6 +5,7 @@
 #include "stm32f4xx_hal.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -125,9 +126,9 @@ static void fill_web_content_buf(float temparature, float humidity, float pressu
             HAL_GetUIDw0(),
             HAL_GetUIDw1(),
             HAL_GetUIDw2(),
-            (int) temparature,
-            (int) humidity,
-            (int) pressure);
+            (int)temparature,
+            (int)humidity,
+            (int)pressure);
 }
 
 // Interface
@@ -149,4 +150,9 @@ void server_run(void) {
     // serve
     for (int i = 0; i < MAX_HTTPSOCK; i++)
         httpServer_run(i);
+}
+
+uint32_t server_get_ipv4(void) {
+    return ((uint32_t)net_info.ip[0] << 24 | (uint32_t)net_info.ip[1] << 16
+            | (uint32_t)net_info.ip[2] << 8 | (uint32_t)net_info.ip[3]);
 }
