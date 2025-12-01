@@ -54,6 +54,15 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     App/Src/lcd_fonts.c
     App/Src/lcd_driver.c
     App/Src/bme280.c
+    App/Src/dhcp.c
+    App/Src/httpParser.c
+    App/Src/httpServer.c
+    App/Src/httpUtil.c
+    App/Src/socket.c
+    App/Src/w5500.c
+    App/Src/wizchip_conf.c
+    App/Src/server.c
+    App/Src/sensor.c
 )
 
 # Add include paths
@@ -77,10 +86,11 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules" ${CMAKE_MODULE_PATH})
 find_package(STM32CubeProgrammer)
+set(STM32CubeProg ${STM32CubeProgrammer_CLI_EXECUTABLE})
 
 if(STM32CubeProgrammer_FOUND)
     add_custom_target(flash
-        COMMAND ${STM32PROG} --connect port=SWD --download ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.elf --start
+        COMMAND ${STM32CubeProg} --connect port=SWD --download ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.elf --start
 
         DEPENDS
         ${CMAKE_PROJECT_NAME}
