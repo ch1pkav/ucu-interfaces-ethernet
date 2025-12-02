@@ -150,17 +150,23 @@ static err_t nmea_raw_parse(const uint8_t *buf, size_t offset, size_t size) {
   static const uint8_t *s_last_sentence_end = (void *)s_nmea_parser_buf_storage;
   const uint8_t *sentence_begin = s_last_sentence_end;
   const uint8_t *data_end = &(buf[(offset + size) % NMEA_PARSER_BUF_SIZE]);
+  if (sentence_begin == NULL) {
+    s_last_sentence_end = buf;
+    return err_AGAIN;
+  }
 
   // handle buffer overflow
-  if (data_end >= sentence_begin) {
+  if (data_end > sentence_begin) {
     s_last_sentence_end = nmea_sentence_find_end(sentence_begin, data_end);
-  } else {
+  } else if (data_end < sentence_begin) {
     s_last_sentence_end =
         nmea_sentence_find_end(sentence_begin, &buf[NMEA_PARSER_BUF_SIZE]);
 
     if (s_last_sentence_end == NULL) {
       s_last_sentence_end = nmea_sentence_find_end(buf, data_end);
     }
+  } else {
+    return err_AGAIN;
   }
 
   if (*sentence_begin != '$') {
