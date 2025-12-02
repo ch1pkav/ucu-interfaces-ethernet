@@ -18,7 +18,11 @@
 | Periph | STM32 Pin | Device Pin | Note |
 |--------|-----------|------------|------|
 | **SPI1** | PA5/PA6/PA7 | W5500 SCK/MISO/MOSI | Ethernet SPI |
-| **CS** | PA4 | W5500 SCS | Chip Select |
+| **Eth CS** | PA4 | W5500 SCS | Ethernet Chip Select |
+| **SPI2** | PB10/PC3 | SPI TFT SCK/MOSI | SPI LCD Display |
+| **LCD CS** | PC5 | LCD CS | LCD Chip Select |
+| **LCD DC** | PB0 | LCD DC | LCD Data/Command |
+| **LCD RST** | PC4 | LCD RST | LCD Reset |
 | **I2C1** | PB6/PB7 | Sensors SCL/SDA | BME280, BH1750 |
 | **UART1**| PA9/PA10 | GPS TX/RX | NMEA Data |
 
@@ -34,22 +38,21 @@
 ```json
 {
   "proto_ver": 1,
-  "device_id": "bp-411-0007",
-  "time_utc": "2025-08-23T12:34:56Z",
+  "device_id": "ABC-12345",
+  "time_utc": "2025-12-02T15:32:50Z",
   "gps": {
-    "lat": 49.8397,
-    "lon": 24.0297,
-    "fix": 3,
-    "sats": 10
+    "lat": 48.4567, 
+    "lon": 34.1234, 
+    "qual": 2 
   },
   "env": {
-    "t_c": 24.3,
-    "p_hpa": 1007.8,
-    "rh_pct": 47.2,
-    "lux": 356
-  },
-  "stale_age_s": {
-    "gps": 0.3,
-    "env": 0.7
+    "t_c": 22.5, 
+    "rh_pct": 55.0, 
+    "p_hpa": 1012.3 
   }
 }
+```
+
+### GET /index.html
+
+Фронтенд з даними, відображеними вище, отриманими через fetch /status. Оновлюється щосекунди.
