@@ -1,6 +1,5 @@
 #include "server.h"
 
-#include "sensor.h"
 #include "spi.h"
 #include "stm32f4xx_hal.h"
 
@@ -10,7 +9,11 @@
 #include <string.h>
 
 #include "dhcp.h"
+#include "forward.h"
+#include "gps.h"
 #include "httpServer.h"
+#include "nmea.h"
+#include "sensor.h"
 #include "socket.h"
 
 #define DHCP_SOCKET 0
@@ -22,68 +25,74 @@
 #define PORT_UDPS 3000
 #define MAX_HTTPSOCK 6
 
-const char* web_content_str =
-"<!DOCTYPE html>"
-"<html>"
-"<head>"
-"<title>W5500-STM32 Web Server</title>"
-"<meta http-equiv='Content-Type' content='text/html; charset=utf-8'>"
-"<style>"
-"body { text-align: center; font-family: sans-serif; }"
-".data { font-size: 24px; font-weight: bold; }"
-"</style>"
-"</head>"
-"<body>"
-"<h1>STM32 Status</h1>"
-"<p>Temperature: <span id=\"temp\" class=\"data\">--.- C</span></p>"
-"<p>Humidity: <span id=\"humid\" class=\"data\">--.- %%</span></p>"
-"<p>Pressure: <span id=\"press\" class=\"data\">----.- hPa</span></p>"
-""
-"<script>"
-"function updateData() {"
-"fetch('/status')"
-".then(response => response.json())"
-".then(data => {"
-"document.getElementById('temp').textContent = "
-"`${data.env.t_c.toFixed(1)} C`;"
-"document.getElementById('humid').textContent = "
-"`${data.env.rh_pct.toFixed(1)} %`;"
-"document.getElementById('press').textContent = "
-"`${data.env.p_hpa.toFixed(1)} hPa`;"
-"})"
-".catch(error => {"
-"console.error('Fetch error:', error);"
-"document.getElementById('temp').textContent = 'ERROR';"
-"});"
-"}"
-"updateData();"
-"setInterval(updateData, 1000);"
-"</script>"
-"</body>"
-"</html>";
+const char* web_content_str = "<!DOCTYPE html>"
+                              "<html>"
+                              "<head>"
+                              "<title>W5500-STM32 Web Server</title>"
+                              "<meta http-equiv='Content-Type' content='text/html; charset=utf-8'>"
+                              "<style>"
+                              "body { text-align: center; font-family: sans-serif; }"
+                              ".data { font-size: 24px; font-weight: bold; }"
+                              "</style>"
+                              "</head>"
+                              "<body>"
+                              "<h1>STM32 Status</h1>"
+                              "<p>Dev ID: <span id=\"devid\" class=\"data\"> - </span></p>"
+                              "<p>UTC Time: <span id=\"time\" class=\"data\"> --:--:-- </span></p>"
+                              "<p>Latitude: <span id=\"lat\" class=\"data\"> --.- </span></p>"
+                              "<p>Longitude: <span id=\"lon\" class=\"data\"> --.-  </span></p>"
+                              "<p>Fix quality: <span id=\"fix\" class=\"data\"> - </span></p>"
+                              "<p>Temperature: <span id=\"temp\" class=\"data\">--.- C</span></p>"
+                              "<p>Humidity: <span id=\"humid\" class=\"data\">--.- %%</span></p>"
+                              "<p>Pressure: <span id=\"press\" class=\"data\">----.- hPa</span></p>"
+                              "<script>"
+                              "function updateData() {"
+                              "fetch('/status')"
+                              ".then(response => response.json())"
+                              ".then(data => {"
+                              "document.getElementById('devid').textContent = "
+                              "`${data.device_id}`;"
+                              "document.getElementById('time').textContent = "
+                              "`${data.time_utc}`;"
+                              "document.getElementById('lat').textContent = "
+                              "`${data.gps.lat.toFixed(1)}`;"
+                              "document.getElementById('lon').textContent = "
+                              "`${data.gps.lon.toFixed(1)}`;"
+                              "document.getElementById('fix').textContent = "
+                              "`${data.qual}`;"
+                              "document.getElementById('temp').textContent = "
+                              "`${data.env.t_c.toFixed(1)} C`;"
+                              "document.getElementById('humid').textContent = "
+                              "`${data.env.rh_pct.toFixed(1)} %`;"
+                              "document.getElementById('press').textContent = "
+                              "`${data.env.p_hpa.toFixed(1)} hPa`;"
+                              "})"
+                              ".catch(error => {"
+                              "console.error('Fetch error:', error);"
+                              "document.getElementById('temp').textContent = 'ERROR';"
+                              "});"
+                              "}"
+                              "updateData();"
+                              "setInterval(updateData, 1000);"
+                              "</script>"
+                              "</body>"
+                              "</html>";
 
-const char* json_content_fstr = 
-"{\n"
-"  \"proto_ver\": %d,\n"
-"  \"device_id\": \"%02X%02X%02X%02X-%02X%02X%02X%02X-%02X%02X%02X%02X\",\n"
-// "  \"time_utc\": \"%s\",\n"
-// "  \"gps\": {\n"
-// "    \"lat\": %.4f, \n"
-// "    \"lon\": %.4f, \n"
-// "    \"fix\": %d, \n"
-// "    \"sats\": %d\n"
-// "  },\n"
-"  \"env\": {\n"
-"    \"t_c\": %.1f, \n"
-"    \"rh_pct\": %.1f, \n"
-"    \"p_hpa\": %.1f \n"
-// "    \"lux\": %d\n"
-"  }\n"
-// "  \"stale_age_s\": {\n"
-// "    \"gps\": %.1f, \n"
-// "    \"env\": %.1f\n"
-// "  }\n"
-"}";
+const char* json_content_fstr = "{\n"
+                                "  \"proto_ver\": %d,\n"
+                                "  \"device_id\": \"%s\",\n"
+                                "  \"time_utc\": \"%s\",\n"
+                                "  \"gps\": {\n"
+                                "    \"lat\": %.4f, \n"
+                                "    \"lon\": %.4f, \n"
+                                "    \"qual\": %d \n"
+                                "  },\n"
+                                "  \"env\": {\n"
+                                "    \"t_c\": %.1f, \n"
+                                "    \"rh_pct\": %.1f, \n"
+                                "    \"p_hpa\": %.1f \n"
+                                "  }\n"
+                                "}";
 
 static char json_content_buf[2048];
 
@@ -162,22 +171,46 @@ void W5500Init(void) {
     wizchip_setnetinfo(&net_info);
 }
 
-static void fill_web_content_buf(float temparature, float humidity, float pressure) {
+void get_device_id_str(char* buf) {
+    sprintf(buf, "%02X%02X%02X%02X-%02X%02X%02X%02X-%02X%02X%02X%02X", 
+            (uint8_t)(HAL_GetUIDw0() >> 24) & 0xff,
+            (uint8_t)(HAL_GetUIDw0() >> 16) & 0xff,
+            (uint8_t)(HAL_GetUIDw0() >> 8) & 0xff,
+            (uint8_t)(HAL_GetUIDw0()) & 0xff,
+            (uint8_t)(HAL_GetUIDw1() >> 24) & 0xff,
+            (uint8_t)(HAL_GetUIDw1() >> 16) & 0xff,
+            (uint8_t)(HAL_GetUIDw1() >> 8) & 0xff,
+            (uint8_t)(HAL_GetUIDw1()) & 0xff,
+            (uint8_t)(HAL_GetUIDw2() >> 24) & 0xff,
+            (uint8_t)(HAL_GetUIDw2() >> 16) & 0xff,
+            (uint8_t)(HAL_GetUIDw2() >> 8) & 0xff,
+            (uint8_t)(HAL_GetUIDw2()) & 0xff
+    );
+}
+
+static void fill_web_content_buf(float temparature,
+                                 float humidity,
+                                 float pressure,
+                                 const nmea_sentence_t* gps_data) {
+
+    static char time_str[64] = { 0 };
+    sprintf(time_str,
+            "%02d:%02d:%02d",
+            gps_data->timestamp.hr,
+            gps_data->timestamp.min,
+            gps_data->timestamp.sec);
+
+    static char device_id_str[64] = { 0 };
+    get_device_id_str(device_id_str);
+
     sprintf(json_content_buf,
             json_content_fstr,
             0,
-            (HAL_GetUIDw0() >> 24) & 0xff,
-            (HAL_GetUIDw0() >> 16) & 0xff,
-            (HAL_GetUIDw0() >> 8) & 0xff,
-            (HAL_GetUIDw0()) & 0xff,
-            (HAL_GetUIDw1() >> 24) & 0xff,
-            (HAL_GetUIDw1() >> 16) & 0xff,
-            (HAL_GetUIDw1() >> 8) & 0xff,
-            (HAL_GetUIDw1()) & 0xff,
-            (HAL_GetUIDw2() >> 24) & 0xff,
-            (HAL_GetUIDw2() >> 16) & 0xff,
-            (HAL_GetUIDw2() >> 8) & 0xff,
-            (HAL_GetUIDw2()) & 0xff,
+            device_id_str,
+            time_str,
+            gps_lat_pos_to_float(&gps_data->lat),
+            gps_lon_pos_to_float(&gps_data->lon),
+            gps_data->quality,
             temparature,
             humidity,
             pressure);
@@ -195,7 +228,10 @@ void server_init(void) {
 
 void server_run(void) {
     // update webcontent
-    fill_web_content_buf(sensor_get_temperature(), sensor_get_humidity(), sensor_get_pressure());
+    fill_web_content_buf(sensor_get_temperature(),
+                         sensor_get_humidity(),
+                         sensor_get_pressure(),
+                         gps_get_last_sentence());
     reg_httpServer_webContent((uint8_t*)"status", (uint8_t*)json_content_buf);
 
     // serve

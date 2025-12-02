@@ -70,6 +70,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     App/Src/sensor.c
     App/Src/display.c
     App/Src/gps.c
+    App/Src/nmea.c
 )
 
 # Add include paths
